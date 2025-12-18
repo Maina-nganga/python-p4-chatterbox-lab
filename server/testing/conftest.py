@@ -1,9 +1,22 @@
-#!/usr/bin/env python3
+import pytest
+from server.app import app
+from server.models import db
 
-def pytest_itemcollected(item):
-    par = item.parent.obj
-    node = item.obj
-    pref = par.__doc__.strip() if par.__doc__ else par.__class__.__name__
-    suf = node.__doc__.strip() if node.__doc__ else node.__name__
-    if pref or suf:
-        item._nodeid = ' '.join((pref, suf))
+@pytest.fixture(scope='session')
+def app_context():
+    app.config['TESTING'] = True
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    
+    with app.app_context():
+        db.create_all()
+        try:
+            yield app
+        finally:
+            db.session.remove()
+            db.drop_all()
+            db.session.close()
+
+@pytest.fixture
+def client(app_context):
+    return app_context.test_client()
+
